@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: cat args",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": [
+                "--mode", "train",
+                "--config", "cats.train_diffusion",
+                "--workdir", "./result/diffusion_cat/",
+                "--n_gpus_per_node", "1"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

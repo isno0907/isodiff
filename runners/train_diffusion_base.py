@@ -1,6 +1,7 @@
 import torch
 import logging
 import torch.distributed as dist
+import torch.autograd.functional as F
 import numpy as np
 import os
 import pickle
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
 from torchvision.utils import make_grid
+from torch.utils.tensorboard import SummaryWriter
 
 from models.util import get_diffusion_model
 from models.score_sde_pytorch.ema import ExponentialMovingAverage as EMA
@@ -43,6 +45,10 @@ def get_state(config, local_rank, mode):
         ema.load_state_dict(loaded_state['ema'])
         optimizer.load_state_dict(loaded_state['optimizer'])
         step = loaded_state['step']
+    elif hasattr(model_config, 'ckpt_path'):
+        loaded_state = torch.load(
+            model_config.ckpt_path, map_location=config.setup.device)
+        model.load_state_dict(loaded_state['model'], strict=False)
 
     return model, ema, optimizer, step
 
@@ -59,16 +65,35 @@ def get_loss_fn(config):
         alpha_t = add_dimensions(alpha_fn(t), len(x.shape) - 1)
         sigma_t = add_dimensions(sigma_fn(t), len(x.shape) - 1)
         perturbed_data = alpha_t * x + sigma_t * eps
-        pred = model(perturbed_data, t, y=y)
-
+        #############################################################################################
+        if config.train.pl_penalty:
+            u = torch.randn_like(perturbed_data, device=x.device) / np.sqrt(x.shape[1] * x.shape[2] * x.shape[3]) # (64, 3, 128, 128)
+            # if y is None:
+            #     pred, Ju = F.jvp(model, (perturbed_data, t), (u, torch.zeros_like(t)), create_graph=True)
+            #     JTJu = F.vjp(model, (perturbed_data, t), Ju/100, create_graph=True)[1][0]
+            # else:
+            #     pred, Ju = F.jvp(model, (perturbed_data, t, y), (u, torch.zeros_like(t), torch.zeros_like(y)), create_graph=True)
+            #     JTJu = F.vjp(model, (perturbed_data, t, y), Ju/100, create_graph=True)[1][0]
+            pred, Ju = F.jvp(lambda x: model.eps(x, t, y=y), perturbed_data, u, create_graph=True)
+            JTJu = F.vjp(lambda x: model.eps(x, t, y=y), perturbed_data, Ju, create_graph=True)[1]
+            TrG = torch.sum(Ju.view(config.train.batch_size, -1) ** 2, dim=1).mean()
+            TrG2 = torch.sum(JTJu.view(config.train.batch_size, -1) ** 2, dim=1).mean()
+            # pl_penalty =config.train.lambda_pl * TrG2 / (TrG ** 2 + 1e-6)
+            pl_penalty = config.train.lambda_pl * TrG2 - TrG * 2
+        #############################################################################################
+        else:
+            pred = model(perturbed_data, t, y=y)
+            pl_penalty = 0
+            TrG2 = 0
+            TrG = 0
         if config.diffusion_model.pred == 'eps':
             loss = (eps - pred) ** 2.
         elif config.diffusion_model.pred == 'v':
             v = (eps - sigma_t * perturbed_data) / alpha_t
             loss = (v - pred) ** 2.
+        loss = torch.mean(torch.sum(loss.reshape(loss.shape[0], -1), dim=-1)) + pl_penalty
 
-        loss = torch.sum(loss.reshape(loss.shape[0], -1), dim=-1)
-        return loss
+        return loss, pl_penalty, TrG, TrG2
     return loss_fn
 
 
@@ -98,7 +123,6 @@ def training(config, workdir, mode):
 
     model, ema, optimizer, step = get_state(config, local_rank, mode)
     state = dict(model=model, ema=ema, optimizer=optimizer, step=step)
-
     if mode == 'continue':
         config.train.snapshot_threshold = step + 1
         config.train.save_threshold = step + 1
@@ -114,7 +138,7 @@ def training(config, workdir, mode):
     sampling_shape = (config.sampler.batch_size,
                       config.data.num_channels,
                       config.data.image_size,
-                      config.data.image_size)
+                      config.data.image_size) # 64, 3, 128, 128
     sampling_fn = get_sampler(config, diffusion_wrapper, None)
 
     with open_url('https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/metrics/inception-2015-12-05.pkl') as f:
@@ -133,6 +157,7 @@ def training(config, workdir, mode):
         model_parameters = filter(
             lambda p: p.requires_grad, model.parameters())
         n_params = sum([np.prod(p.size()) for p in model_parameters])
+        writer = SummaryWriter(workdir)
         logging.info('Number of trainable parameters in model: %d' % n_params)
     dist.barrier()
 
@@ -203,8 +228,7 @@ def training(config, workdir, mode):
 
             optimizer.zero_grad(set_to_none=True)
             with autocast(enabled=config.train.autocast):
-                loss = torch.mean(loss_fn(diffusion_wrapper, x, y))
-
+                loss, pl_penalty, TrG, TrG2 = loss_fn(diffusion_wrapper, x, y)
             if config.train.n_warmup_iters > 0 and state['step'] <= config.train.n_warmup_iters:
                 for g in optimizer.param_groups:
                     g['lr'] = config.optim.params.learning_rate * \
@@ -225,11 +249,15 @@ def training(config, workdir, mode):
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), max_norm=config.optim.params.grad_clip)
                 optimizer.step()
+            if (config.setup.global_rank == 0):
+                writer.add_scalar("Loss/train", loss, state['step']+1)
+                writer.add_scalar("PL/train", pl_penalty, state['step']+1)
 
             if (state['step'] + 1) % config.train.log_freq == 0 and config.setup.global_rank == 0:
-                logging.info('Loss: %.4f, step: %d' %
-                             (loss, state['step'] + 1))
+                logging.info('Loss: %.4f, PL: %.4f, TrG: %.4f, TrG2: %.4f, step: %d' %
+                             (loss, pl_penalty, TrG, TrG2, state['step'] + 1))
             dist.barrier()
 
             state['step'] += 1
             ema.update(model.parameters())
+    writer.close()

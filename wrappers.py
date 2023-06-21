@@ -17,7 +17,7 @@ def model_fn(model, x_t, t, y=None, context=None):
             return model(x_t, t)
 
 
-class EpsPredictor(nn.Module):
+class EpsPredictor(nn.Module): # epsilon predictor
     def __init__(self, model, M, beta_min, beta_d):
         super().__init__()
 
@@ -31,12 +31,12 @@ class EpsPredictor(nn.Module):
             return model_fn(self.model, x_t, self.M * t, y, context)
         else:
             return model_fn(self.model, x_t, self.M * t, y, context)[0]
-
+    
     def eps(self, x_t, t, y=None, context=None, return_embeddings=False):
         return self.forward(x_t, t, y, context, return_embeddings)
 
 
-class VPredictor(nn.Module):
+class VPredictor(nn.Module): # eps predictor
     def __init__(self, model, M, beta_min, beta_d):
         super().__init__()
 

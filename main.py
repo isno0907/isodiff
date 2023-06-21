@@ -156,9 +156,9 @@ if __name__ == '__main__':
     config.setup.global_size = config.setup.n_nodes * config.setup.n_gpus_per_node
 
     if args.ckpt_path is not None:
-        if config.setup.mode != 'continue':
-            raise ValueError('The ckpt_flag is only used for training continuation.')
-        if config.setup.runner == 'train_diffusion_base' or config.setup.runner == 'train_diffusion_upsampler':
+        # if config.setup.mode != 'continue':
+        #     raise ValueError('The ckpt_flag is only used for training continuation.')
+        if config.setup.runner == 'train_diffusion_base' or config.setup.runner == 'train_diffusion_upsampler' or config.setup.runner == 'train_diffusion_pl':
             config.diffusion_model.ckpt_path = args.ckpt_path
         elif config.setup.runner == 'train_genie_base' or config.setup.runner == 'train_genie_upsampler':
             config.genie_model.ckpt_path = args.ckpt_path

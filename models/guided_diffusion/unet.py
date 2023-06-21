@@ -224,19 +224,19 @@ class ResBlock(TimestepBlock):
             self.skip_connection = conv_nd(
                 dims, channels, self.out_channels, 1)
 
+    # def forward(self, x, emb):
+    #     """
+    #     Apply the block to a Tensor, conditioned on a timestep embedding.
+
+    #     :param x: an [N x C x ...] Tensor of features.
+    #     :param emb: an [N x emb_channels] Tensor of timestep embeddings.
+    #     :return: an [N x C x ...] Tensor of outputs.
+    #     """
+    #     return checkpoint(
+    #         self._forward, (x, emb), self.parameters(), self.use_checkpoint
+    #     )
+
     def forward(self, x, emb):
-        """
-        Apply the block to a Tensor, conditioned on a timestep embedding.
-
-        :param x: an [N x C x ...] Tensor of features.
-        :param emb: an [N x emb_channels] Tensor of timestep embeddings.
-        :return: an [N x C x ...] Tensor of outputs.
-        """
-        return checkpoint(
-            self._forward, (x, emb), self.parameters(), self.use_checkpoint
-        )
-
-    def _forward(self, x, emb):
         if self.updown:
             in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
             h = in_rest(x)
@@ -296,10 +296,10 @@ class AttentionBlock(nn.Module):
 
         self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
 
-    def forward(self, x):
-        return checkpoint(self._forward, (x,), self.parameters(), True)
+    # def forward(self, x):
+    #     return checkpoint(self._forward, (x,), self.parameters(), True)
 
-    def _forward(self, x):
+    def forward(self, x):
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
         qkv = self.qkv(self.norm(x.float()))
@@ -669,7 +669,37 @@ class UNetModel(nn.Module):
 
         return self.out(h), h, emb
 
+    def Jforward(self, x, timesteps, y=None):
+        """
+        Apply the model to an input batch.
 
+        :param x: an [N x C x ...] Tensor of inputs.
+        :param timesteps: a 1-D batch of timesteps.
+        :param y: an [N] Tensor of labels, if class-conditional.
+        :return: an [N x C x ...] Tensor of outputs.
+        """
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
+
+        hs = []
+        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels)) if isinstance(
+            self.time_embed[0], nn.Linear) else self.time_embed(th.log(timesteps))
+
+        if self.num_classes is not None:
+            assert y.shape == (x.shape[0],)
+            emb = emb + self.label_emb(y)
+
+        h = x
+        for module in self.input_blocks:
+            h = module(h, emb)
+            hs.append(h)
+        h = self.middle_block(h, emb)
+        for module in self.output_blocks:
+            h = th.cat([h, hs.pop()], dim=1)
+            h = module(h, emb)
+
+        return self.out(h)
 class SuperResModel(UNetModel):
     """
     A UNetModel that performs super-resolution.

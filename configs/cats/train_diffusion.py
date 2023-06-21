@@ -42,7 +42,7 @@ def get_config():
     config.diffusion_model.dropout = .1
     config.diffusion_model.image_size = config.data.image_size
     config.diffusion_model.num_heads = None
-    config.diffusion_model.num_head_channels = 64
+    config.diffusion_model.num_head_channels = 32
     config.diffusion_model.num_head_upsample = -1
     config.diffusion_model.use_scale_shift_norm = True
     config.diffusion_model.resblock_updown = True
