@@ -81,5 +81,7 @@ def get_config():
     config.train.fid_freq = 50000
     config.train.fid_threshold = 1
     config.train.fid_samples = 10000
+    config.train.pl_penalty = False
+    config.train.lambda_pl = 0
 
     return config

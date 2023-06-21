@@ -37,6 +37,7 @@ def get_state(config, local_rank, mode):
     ema = EMA(model.parameters(), decay=model_config.ema_rate)
     optimizer = get_optimizer(config.optim.optimizer, model.parameters(), **config.optim.params)
     step = 0
+    print(model_config.ckpt_path)
 
     if mode == 'continue':
         loaded_state = torch.load(
@@ -45,7 +46,7 @@ def get_state(config, local_rank, mode):
         ema.load_state_dict(loaded_state['ema'])
         optimizer.load_state_dict(loaded_state['optimizer'])
         step = loaded_state['step']
-    elif hasattr(model_config, 'ckpt_path'):
+    elif model_config.ckpt_path != 'none':
         loaded_state = torch.load(
             model_config.ckpt_path, map_location=config.setup.device)
         model.load_state_dict(loaded_state['model'], strict=False)
