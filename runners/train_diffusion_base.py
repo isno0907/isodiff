@@ -75,26 +75,29 @@ def get_loss_fn(config):
             # else:
             #     pred, Ju = F.jvp(model, (perturbed_data, t, y), (u, torch.zeros_like(t), torch.zeros_like(y)), create_graph=True)
             #     JTJu = F.vjp(model, (perturbed_data, t, y), Ju/100, create_graph=True)[1][0]
-            pred, Ju = F.jvp(lambda x: model.eps(x, t, y=y), perturbed_data, u, create_graph=True)
-            JTJu = F.vjp(lambda x: model.eps(x, t, y=y), perturbed_data, Ju, create_graph=True)[1]
+            pred, Ju = F.jvp(lambda x: model(x, t, y=y), perturbed_data, u, create_graph=True)
+            JTJu = F.vjp(lambda x: model(x, t, y=y), perturbed_data, Ju, create_graph=True)[1]
             TrG = torch.sum(Ju.view(config.train.batch_size, -1) ** 2, dim=1).mean()
             TrG2 = torch.sum(JTJu.view(config.train.batch_size, -1) ** 2, dim=1).mean()
-            # pl_penalty =config.train.lambda_pl * TrG2 / (TrG ** 2 + 1e-6)
-            pl_penalty = config.train.lambda_pl * TrG2 - TrG * 2
+            pl_penalty = config.train.lambda_pl * TrG2 / (TrG ** 2 + 1e-10)
+            # pl_penalty = config.train.lambda_pl * TrG2 - 2 * TrG
         #############################################################################################
         else:
             pred = model(perturbed_data, t, y=y)
             pl_penalty = 0
             TrG2 = 0
             TrG = 0
+
         if config.diffusion_model.pred == 'eps':
             loss = (eps - pred) ** 2.
         elif config.diffusion_model.pred == 'v':
             v = (eps - sigma_t * perturbed_data) / alpha_t
             loss = (v - pred) ** 2.
+
         loss = torch.mean(torch.sum(loss.reshape(loss.shape[0], -1), dim=-1)) + pl_penalty
 
         return loss, pl_penalty, TrG, TrG2
+    
     return loss_fn
 
 

@@ -35,7 +35,7 @@ def get_config():
     config.diffusion_model.num_in_channels = config.data.num_channels
     config.diffusion_model.num_out_channels = config.data.num_channels
     config.diffusion_model.nf = 192
-    config.diffusion_model.ch_mult = (1, 2, 2, 3, 3)
+    config.diffusion_model.ch_mult = (1, 2, 2, 2)  #(1, 2, 2, 3, 3)
     config.diffusion_model.num_res_blocks = 2
     config.diffusion_model.attn_resolutions = (8, 16)
     config.diffusion_model.resamp_with_conv = True
@@ -54,7 +54,7 @@ def get_config():
     config.diffusion_model.ckpt_path = 'none'
 
     config.sampler.name = 'ddim'
-    config.sampler.batch_size = 64
+    config.sampler.batch_size = 4
     config.sampler.n_steps = 16
     config.sampler.denoising = False
     config.sampler.quadratic_striding = False
@@ -68,10 +68,10 @@ def get_config():
     config.optim.params.grad_clip = 1.
 
     config.train.seed = 0
-    config.train.eps = 1e-3
+    config.train.eps = 1e-4
     config.train.n_iters = 400000
     config.train.n_warmup_iters = 100000
-    config.train.batch_size = 16
+    config.train.batch_size = 4
     config.train.autocast = True
     config.train.log_freq = 100
     config.train.snapshot_freq = 10000
