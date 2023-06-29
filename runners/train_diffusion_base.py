@@ -57,28 +57,39 @@ def get_state(config, local_rank, mode):
 def get_loss_fn(config):
     alpha_fn, sigma_fn = get_alpha_sigma_fn(
         config.sde.beta_min, config.sde.beta_d)
+    
+    def beta(t):
+        return config.sde.beta_min + config.sde.beta_d * t
 
     def loss_fn(model, x, y=None):
         t = torch.rand(x.shape[0], device=config.setup.device) * \
             (1.0 - config.train.eps) + config.train.eps
         eps = torch.randn_like(x, device=x.device)
 
+        beta_t = add_dimensions(beta(t), len(x.shape) - 1)
         alpha_t = add_dimensions(alpha_fn(t), len(x.shape) - 1)
         sigma_t = add_dimensions(sigma_fn(t), len(x.shape) - 1)
         perturbed_data = alpha_t * x + sigma_t * eps
+        
+        dt = (1 - config.sampler.eps) / config.sampler.n_steps
         #############################################################################################
         if config.train.pl_penalty:
-            u = torch.randn_like(perturbed_data, device=x.device) / np.sqrt(x.shape[1] * x.shape[2] * x.shape[3]) # (64, 3, 128, 128)
-            # if y is None:
-            #     pred, Ju = F.jvp(model, (perturbed_data, t), (u, torch.zeros_like(t)), create_graph=True)
-            #     JTJu = F.vjp(model, (perturbed_data, t), Ju/100, create_graph=True)[1][0]
-            # else:
-            #     pred, Ju = F.jvp(model, (perturbed_data, t, y), (u, torch.zeros_like(t), torch.zeros_like(y)), create_graph=True)
-            #     JTJu = F.vjp(model, (perturbed_data, t, y), Ju/100, create_graph=True)[1][0]
-            pred, Ju = F.jvp(lambda x: model(x, t, y=y), perturbed_data, u, create_graph=True)
-            JTJu = F.vjp(lambda x: model(x, t, y=y), perturbed_data, Ju, create_graph=True)[1]
+            u = torch.randn_like(perturbed_data, device=x.device) / np.sqrt(x.shape[1] * x.shape[2] * x.shape[3]) # (B, C, H, W)
+
+            pred, jvp = F.jvp(lambda x: model(x, t, y=y), perturbed_data, u, create_graph=True)
+
+            A = 1 - beta_t/2
+            B = beta_t / (2 * sigma_t)
+
+            Ju = A * u + B * dt * jvp 
+            tmp_u = A * B * u + B ** 2 * jvp
+            vjp = F.vjp(lambda x: model(x, t, y=y), perturbed_data, tmp_u, create_graph=True)[1]
+
+            JTJu = (A ** 2) * u + A * B * jvp + vjp
+
             TrG = torch.sum(Ju.view(config.train.batch_size, -1) ** 2, dim=1).mean()
             TrG2 = torch.sum(JTJu.view(config.train.batch_size, -1) ** 2, dim=1).mean()
+
             pl_penalty = config.train.lambda_pl * TrG2 / (TrG ** 2 + 1e-10)
             # pl_penalty = config.train.lambda_pl * TrG2 - 2 * TrG
         #############################################################################################
@@ -210,6 +221,7 @@ def training(config, workdir, mode):
 
                     if config.setup.global_rank == 0:
                         for i, fid in enumerate(fid_list):
+                            writer.add_scalar("Metrics/FID", fid, state['step']+1)
                             logging.info('FID (%d) at step %d: %.6f' % (i + 1, state['step'], fid))
                     dist.barrier()
                 model.train()
@@ -229,6 +241,14 @@ def training(config, workdir, mode):
                 y = train_y.to(config.setup.device)
                 if y.dtype == torch.float32:
                     y = y.long()
+
+            #######################################
+            # torch.cuda.empty_cache()
+            # torch.cuda.reset_max_memory_allocated()
+            # torch.cuda.reset_max_memory_cached()
+            # gc.collect()
+            # dist.barrier()
+            #######################################
 
             optimizer.zero_grad(set_to_none=True)
             with autocast(enabled=config.train.autocast):
@@ -254,11 +274,11 @@ def training(config, workdir, mode):
                         model.parameters(), max_norm=config.optim.params.grad_clip)
                 optimizer.step()
             if (config.setup.global_rank == 0):
-                writer.add_scalar("Loss/train", loss, state['step']+1)
-                writer.add_scalar("PL/train", pl_penalty, state['step']+1)
+                writer.add_scalar("Loss/Diffusion Loss", loss, state['step']+1)
+                writer.add_scalar("Loss/PL penalty", pl_penalty, state['step']+1)
 
             if (state['step'] + 1) % config.train.log_freq == 0 and config.setup.global_rank == 0:
-                logging.info('Loss: %.4f, PL: %.4f, TrG: %.4f, TrG2: %.4f, step: %d' %
+                logging.info('Loss: %8.2f, PL: %8.2f, TrG: %8.2f, TrG2: %8.2f, step: %d' %
                              (loss, pl_penalty, TrG, TrG2, state['step'] + 1))
             dist.barrier()
 

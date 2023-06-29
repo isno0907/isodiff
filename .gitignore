@@ -1,5 +1,7 @@
 *.png
 *.pth
-work_dir/
+*.npz
+*.txt
+work_dir*/
 data/
 output/

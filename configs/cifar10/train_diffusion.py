@@ -17,10 +17,10 @@ def get_config():
 
     config.setup.runner = 'train_diffusion_base'
 
-    config.data.image_size = 128
+    config.data.image_size = 32
     config.data.num_channels = 3
-    config.data.fid_stats = ['assets/stats/cats.zip']
-    config.data.path = 'data/processed/cats_128.zip'
+    config.data.fid_stats = ['assets/stats/cifar10.npz']
+    config.data.path = 'data/processed/cifar10.zip'
     config.data.num_classes = None
     config.data.dataset_params.xflip = True
     config.data.dataloader_params.num_workers = 1
@@ -30,31 +30,38 @@ def get_config():
     config.sde.beta_min = .1
     config.sde.beta_d = 19.9
 
-    config.diffusion_model.name = 'openai'
+    config.diffusion_model.name = 'ncsnpp'
     config.diffusion_model.ema_rate = 0.9999
+    config.diffusion_model.normalization = 'GroupNorm'
+    config.diffusion_model.act_name = 'swish'
     config.diffusion_model.num_in_channels = config.data.num_channels
     config.diffusion_model.num_out_channels = config.data.num_channels
-    config.diffusion_model.nf = 192
-    config.diffusion_model.ch_mult = (1, 2, 2, 2)  #(1, 2, 2, 3, 3)
-    config.diffusion_model.num_res_blocks = 2
-    config.diffusion_model.attn_resolutions = (8, 16)
+    config.diffusion_model.nf = 128
+    config.diffusion_model.ch_mult = (1, 2, 2, 2)
+    config.diffusion_model.num_res_blocks = 8
+    config.diffusion_model.attn_resolutions = (16,)
     config.diffusion_model.resamp_with_conv = True
-    config.diffusion_model.dropout = .1
-    config.diffusion_model.image_size = config.data.image_size
-    config.diffusion_model.num_heads = None
-    config.diffusion_model.num_head_channels = 32
-    config.diffusion_model.num_head_upsample = -1
-    config.diffusion_model.use_scale_shift_norm = True
-    config.diffusion_model.resblock_updown = True
-    config.diffusion_model.use_new_attention_order = True
-    config.diffusion_model.num_classes = None
+    config.diffusion_model.conditional = True
+    config.diffusion_model.fir = False
+    config.diffusion_model.fir_kernel = [1, 3, 3, 1]
+    config.diffusion_model.skip_rescale = True
+    config.diffusion_model.resblock_type = 'biggan'
+    config.diffusion_model.progressive = 'none'
+    config.diffusion_model.progressive_input = 'none'
+    config.diffusion_model.progressive_combine = 'sum'
+    config.diffusion_model.attention_type = 'ddpm'
+    config.diffusion_model.embedding_type = 'positional'
+    config.diffusion_model.init_scale = 0.
     config.diffusion_model.fourier_scale = 16
-    config.diffusion_model.pred = 'v'
-    config.diffusion_model.M = 1.
-    config.diffusion_model.ckpt_path = 'none'
+    config.diffusion_model.conv_size = 3
+    config.diffusion_model.dropout = 0.1
+    config.diffusion_model.image_size = config.data.image_size
+    config.diffusion_model.pred = 'eps'
+    config.diffusion_model.M = 999.
+    config.diffusion_model.ckpt_path = 'none' #'work_dir/cifar10/checkpoint_8.pth'
 
     config.sampler.name = 'ddim'
-    config.sampler.batch_size = 4
+    config.sampler.batch_size = 16
     config.sampler.n_steps = 16
     config.sampler.denoising = False
     config.sampler.quadratic_striding = False
@@ -63,23 +70,24 @@ def get_config():
     config.sampler.denoising = False
 
     config.optim.optimizer = 'Adam'
-    config.optim.params.learning_rate = 1e-4
+    config.optim.params.learning_rate = 5e-5
     config.optim.params.weight_decay = 0.
     config.optim.params.grad_clip = 1.
+    config.optim.decay_scheduler = 50000 #?
 
     config.train.seed = 0
-    config.train.eps = 1e-4
-    config.train.n_iters = 400000
-    config.train.n_warmup_iters = 100000
-    config.train.batch_size = 4
-    config.train.autocast = True
+    config.train.eps = 1e-3
+    config.train.n_iters = 20000
+    config.train.n_warmup_iters = 0
+    config.train.batch_size = 16
+    config.train.autocast = False
     config.train.log_freq = 100
-    config.train.snapshot_freq = 10000
+    config.train.snapshot_freq = 3000
     config.train.snapshot_threshold = 1
-    config.train.save_freq = 50000
+    config.train.save_freq = 3000
     config.train.save_threshold = 1
-    config.train.fid_freq = 50000
-    config.train.fid_threshold = 1
+    config.train.fid_freq = 3000
+    config.train.fid_threshold = 0
     config.train.fid_samples = 10000
     
     config.train.pl_penalty = False
