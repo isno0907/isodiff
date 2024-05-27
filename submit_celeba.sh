@@ -4,7 +4,7 @@ export OUTPUT_DIR="output/ddpm_celeba_hq/"
 
 mkdir -p $OUTPUT_DIR
 
-accelerate launch --mixed_precision="fp16" --multi_gpu --num_processes=4 --main_process_port 29600 train_unconditional.py \
+accelerate launch --mixed_precision="fp16" --multi_gpu --num_processes=4 --main_process_port 29601 train_unconditional.py \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --train_data_dir=$DATASET_PATH \
   --output_dir=$OUTPUT_DIR \

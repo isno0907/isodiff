@@ -21,7 +21,7 @@ from torchvision.utils import save_image
 import torch.autograd.functional as A
 from einops import rearrange
 
-from diffusers import UNet2DModel_G
+from h_unet import UNet2DModel_G
 
 def get_activations(dl, model, batch_size, device, max_samples, dl_include_step=True):
     pred_arr = []
@@ -605,11 +605,6 @@ def compute_geodesic_metric(local_basis_1, local_basis_2, subspace_dim):
 
 def forward(sample, unet, scheduler, n):
     image = sample
-    # for t in scheduler.timesteps[:n]:
-    #     with torch.no_grad():
-    #         residual = unet(image, t)[0]["sample"]
-    #     prev_image = scheduler.step(residual, t, image, eta=0.0)["prev_sample"]
-    #     image = prev_image
     noise = torch.randn_like(sample)
     if isinstance(unet, UNet2DModel_G):
         noisy_sample = scheduler.q_sample(sample, torch.tensor(n).to('cuda'), noise)

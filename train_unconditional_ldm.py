@@ -27,7 +27,8 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 
 import diffusers
-from diffusers import DiffusionPipeline, LDMPipeline, DDIMScheduler , UNet2DModel_H, VQModel
+from diffusers import DiffusionPipeline, DDIMScheduler, VQModel
+from h_unet import UNet2DModel_H, LDMPipeline_H
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import EMAModel
 from diffusers.utils import check_min_version, is_accelerate_version, is_tensorboard_available, is_wandb_available, randn_tensor
@@ -614,7 +615,6 @@ def main(args):
     )
 
     def transform_images(examples):
-        # print(examples)
         try:
             images = [augmentations(image.convert("RGB")) for image in examples["image"]]
         except:
@@ -774,7 +774,7 @@ def main(args):
         unet = accelerator.unwrap_model(model)
         vqvae = vqvae.to(accelerator.device)
         ###
-        pipeline = LDMPipeline(
+        pipeline = LDMPipeline_H(
             unet=unet,
             vqvae=vqvae,
             scheduler=noise_scheduler,
