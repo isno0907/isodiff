@@ -59,5 +59,12 @@ bash submit_celeba_ldm.sh
 
 ## Citation
 ```
-TODO
+
+@article{hahm2024isometric,
+  title={Isometric Representation Learning for Disentangled Latent Space of Diffusion Models},
+  author={Hahm, Jaehoon and Lee, Junho and Kim, Sunghyun and Lee, Joonseok},
+  journal={arXiv preprint arXiv:2407.11451},
+  year={2024}
+}
+
 ```

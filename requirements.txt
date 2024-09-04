@@ -11,3 +11,6 @@ datasets==2.13.1
 fsspec==2023.6.0
 diffusers==0.18.1
 scipy==1.11.1
+jmespath==1.0.1
+pygments==2.18.0
+matplotlib==3.9.2
