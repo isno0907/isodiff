@@ -1,9 +1,10 @@
 # Isometric Representation Learning for Disentangled Latent Space of Diffusion Models
-
 > Jaehoon Hahm\*, Junho Lee\*, Sunghyun Kim, Joonseok Lee
 > (* equal contribution)
 
 ![ICML 2024](https://img.shields.io/badge/ICML-2024-blue)
+
+https://arxiv.org/abs/2407.11451
 
 This repository is the official Pytorch implementation for Isometric diffusion.
 
