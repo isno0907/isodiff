@@ -43,6 +43,7 @@ bash submit_celeba.sh
 # LDM
 bash submit_celeba_ldm.sh
 ```
+You can find the pre-trained weights for the Isometric Diffusion model of CelebA-HQ at this [link](https://drive.google.com/drive/folders/1imj7teE2lL3aiGHo5S8cSy8J2ZnWb7-i?usp=drive_link).
 
 ## Results
 ### Image Interpolation
