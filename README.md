@@ -70,3 +70,21 @@ You can find the pre-trained weights for the Isometric Diffusion model of CelebA
 }
 
 ```
+```
+@InProceedings{pmlr-v235-hahm24a,
+  title = 	 {Isometric Representation Learning for Disentangled Latent Space of Diffusion Models},
+  author =       {Hahm, Jaehoon and Lee, Junho and Kim, Sunghyun and Lee, Joonseok},
+  booktitle = 	 {Proceedings of the 41st International Conference on Machine Learning},
+  pages = 	 {17224--17245},
+  year = 	 {2024},
+  editor = 	 {Salakhutdinov, Ruslan and Kolter, Zico and Heller, Katherine and Weller, Adrian and Oliver, Nuria and Scarlett, Jonathan and Berkenkamp, Felix},
+  volume = 	 {235},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {21--27 Jul},
+  publisher =    {PMLR},
+  pdf = 	 {https://raw.githubusercontent.com/mlresearch/v235/main/assets/hahm24a/hahm24a.pdf},
+  url = 	 {https://proceedings.mlr.press/v235/hahm24a.html},
+  abstract = 	 {The latent space of diffusion model mostly still remains unexplored, despite its great success and potential in the field of generative modeling. In fact, the latent space of existing diffusion models are entangled, with a distorted mapping from its latent space to image space. To tackle this problem, we present Isometric Diffusion, equipping a diffusion model with a geometric regularizer to guide the model to learn a geometrically sound latent space of the training data manifold. This approach allows diffusion models to learn a more disentangled latent space, which enables smoother interpolation, more accurate inversion, and more precise control over attributes directly in the latent space. Our extensive experiments consisting of image interpolations, image inversions, and linear editing show the effectiveness of our method.}
+}
+
+```
